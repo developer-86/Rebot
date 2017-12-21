@@ -75,6 +75,9 @@ namespace Bot
 
         private bool __init_Phone;
         private string _Phone;
+        /// <summary>
+        /// User phone.
+        /// </summary>
         public string Phone
         {
             get

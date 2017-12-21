@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 namespace Bot
 {
     /// <summary>
-    /// Consts class
+    /// Consts class.
     /// </summary>
     public class BotConsts
     {
