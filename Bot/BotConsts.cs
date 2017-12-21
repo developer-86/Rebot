@@ -17,6 +17,6 @@ namespace Bot
         public const int BotID = 464216542;
         public const string BotHash = "AAF25FiE-zNH1w-tdu45BVVKQRx1XGwgRZg";
 
-        public const string Phone = "79262198816";//my phone
+        public const string Phone = "79262198816";
     }
 }

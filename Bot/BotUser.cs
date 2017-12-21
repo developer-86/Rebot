@@ -45,9 +45,6 @@ namespace Bot
 
         private bool __init_Id;
         private int _Id;
-        /// <summary>
-        /// User Id.
-        /// </summary>
         public int Id
         {
             get
