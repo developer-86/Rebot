@@ -5,6 +5,8 @@ VisualStudioVersion = 12.0.30723.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bot", "Bot\Bot.csproj", "{00A0EE2B-F5C8-4C41-98B6-96BDD3BA8862}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Rebot", "Rebot\Rebot.csproj", "{4A25FDA5-2479-4F5F-A3C6-1012055B0978}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,6 +17,10 @@ Global
 		{00A0EE2B-F5C8-4C41-98B6-96BDD3BA8862}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{00A0EE2B-F5C8-4C41-98B6-96BDD3BA8862}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{00A0EE2B-F5C8-4C41-98B6-96BDD3BA8862}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4A25FDA5-2479-4F5F-A3C6-1012055B0978}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4A25FDA5-2479-4F5F-A3C6-1012055B0978}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4A25FDA5-2479-4F5F-A3C6-1012055B0978}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4A25FDA5-2479-4F5F-A3C6-1012055B0978}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
