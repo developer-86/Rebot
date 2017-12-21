@@ -60,6 +60,9 @@ namespace Bot
 
         private bool __init_FirstName;
         private string _FirstName;
+        /// <summary>
+        /// First name.
+        /// </summary>
         public string FirstName
         {
             get
