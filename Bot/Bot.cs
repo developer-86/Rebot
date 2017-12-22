@@ -14,7 +14,9 @@ using TeleSharp.TL;
 using TeleSharp.TL.Messages;
 using TLSharp.Core;
 using TLSharp.Core.Utils;
-using VideoLibrary;
+using YoutubeExplode;
+using YoutubeExplode.Models.MediaStreams;
+using YVideo = YoutubeExplode.Models.Video;
 
 namespace Bot
 {
@@ -117,6 +119,21 @@ namespace Bot
             }
         }
 
+        private bool __init_YoutubeClient;
+        private YoutubeClient _YoutubeClient;
+        private YoutubeClient YoutubeClient
+        {
+            get
+            {
+                if (!__init_YoutubeClient)
+                {
+                    _YoutubeClient = new YoutubeClient();
+                    __init_YoutubeClient = true;
+                }
+                return _YoutubeClient;
+            }
+        }
+
         private Chat Chat { get; set; }
 
         public async Task StartAsync()
@@ -132,7 +149,8 @@ namespace Bot
             if (!this.TClient.IsUserAuthorized())
             {
                 string hash = await this.TClient.SendCodeRequestAsync(this.Phone);
-                string smsCode = null;
+                Console.WriteLine("Введите смс код авторизации...");
+                string smsCode = Console.ReadLine();
                 this.CurrentAuthUser = await this.TClient.MakeAuthAsync(this.Phone, hash, smsCode);
             }
             else
@@ -221,47 +239,6 @@ namespace Bot
             return activated;
         }
 
-        public async Task SendLocalVideoAsync(YouTubeVideo video, string path, string name)
-        {
-            if (video == null)
-                throw new ArgumentNullException("video");
-
-            if (string.IsNullOrEmpty(path))
-                throw new ArgumentNullException("path");
-
-            if (string.IsNullOrEmpty(name))
-                throw new ArgumentNullException("name");
-
-            FileInfo file = new FileInfo(path);
-            if (!file.Exists)
-                throw new Exception(string.Format("Файл по адресу {0} не найден",
-                    path));
-
-            TLAbsInputFile fileResult = this.UploadLocalFileToTelegram(path, name);
-
-            string mimeType = "video/mp4";
-            int h = video.Resolution;
-            int w = (int)(video.Resolution * 1.7777777) + 1;
-            int duration = 2 * 60 * 60;
-            TLDocumentAttributeVideo attr1 = new TLDocumentAttributeVideo()
-            {
-                Duration = duration,
-                H = h,
-                W = w,
-            };
-
-            TLVector<TLAbsDocumentAttribute> attrs = new TLVector<TLAbsDocumentAttribute>();
-            attrs.Add(attr1);
-
-            TLInputPeerUser peer = new TLInputPeerUser() { UserId = this.CurrentAuthUser.Id };
-            var sendTask = this.TClient.SendUploadedDocument(
-                peer, fileResult, name, mimeType, attrs);
-
-            sendTask.Wait();
-        }
-
-
-
 
 
 
@@ -318,6 +295,18 @@ namespace Bot
             {
                 try
                 {
+                    if (!this.TClient.IsConnected)
+                    {
+                        Console.WriteLine("reconnect...");
+                        Task reconnectTask = this.StartAsync();
+                        reconnectTask.Wait();
+
+                        if (this.TClient.IsConnected)
+                            Console.WriteLine("reconnect completed !");
+                        else
+                            Console.WriteLine("reconnect failed !!!!");
+                    }
+
                     int offset = (int)this.GetOffset();
                     var updTask = this.TBot.GetUpdatesAsync(offset); // получаем массив обновлений
                     updTask.Wait();
@@ -378,7 +367,7 @@ namespace Bot
                         if (string.IsNullOrEmpty(url))
                             throw new Exception(string.Format("Не задана ссылка на видео"));
 
-                        this.DownloadVideo(url);
+                        this.TransferVideo(url);
                         break;
                     default:
                         throw new Exception(string.Format("Неизвестная команда"));
@@ -391,132 +380,19 @@ namespace Bot
             }
         }
 
-        private void DownloadVideo(string url)
+        private void TransferVideo(string url)
         {
             if (string.IsNullOrEmpty(url))
                 throw new ArgumentNullException("url");
 
-            Console.WriteLine("download: {0}", url);
-
-            var allVideos = YouTube.Default.GetAllVideos(url);
-            var allMp4 = allVideos.Where(i => i.FileExtension == ".mp4");
-
-            Dictionary<int, List<YouTubeVideo>> videosByResolutions = new Dictionary<int, List<YouTubeVideo>>();
-            foreach (YouTubeVideo v in allMp4)
-            {
-                List<YouTubeVideo> resolutionVideos = null;
-                if (videosByResolutions.ContainsKey(v.Resolution))
-                    resolutionVideos = videosByResolutions[v.Resolution];
-                else
-                {
-                    resolutionVideos = new List<YouTubeVideo>();
-                    videosByResolutions.Add(v.Resolution, resolutionVideos);
-                }
-
-                resolutionVideos.Add(v);
-            }
-
-            Func<int, YouTubeVideo> getBestVideo = new Func<int, YouTubeVideo>((int maxRes) =>
-            {
-                YouTubeVideo bestVideo = null;
-                var keys = videosByResolutions.OrderByDescending(v => v.Key);
-                foreach (KeyValuePair<int, List<YouTubeVideo>> keyValue in keys)
-                {
-                    int resolution = keyValue.Key;
-
-                    if (resolution > maxRes)
-                        continue;
-
-                    List<YouTubeVideo> videos = videosByResolutions[resolution];
-                    foreach (YouTubeVideo v in videos)
-                    {
-                        if (bestVideo == null)
-                            bestVideo = v;
-                        else if (v.AudioBitrate > bestVideo.AudioBitrate)
-                            bestVideo = v;
-                    }
-
-                    if (bestVideo != null && bestVideo.AudioBitrate > 0)
-                        break;
-                }
-
-                return bestVideo;
-            });
-
-            YouTubeVideo best = getBestVideo(int.MaxValue);
-            if (best == null)
-                throw new Exception(string.Format("Не удалось найти видео для загрузки"));
-
-            bool upload = false;
-
-            upload = this.Upload(best, true);
-            if (upload)
-                upload = this.Upload(best, false);
-            else
-            {
-                YouTubeVideo normalVideo = getBestVideo(best.Resolution - 1);
-                if (normalVideo != null)
-                {
-                    upload = this.Upload(normalVideo, true);
-                    if (upload)
-                        upload = this.Upload(normalVideo, false);
-                }
-            }
+            var downloadTask = this.TransferVideoAsync(url);
+            downloadTask.Wait();
         }
 
-        private bool Upload(YouTubeVideo video, bool testAttempt)
+        private async Task TransferVideoAsync(string url)
         {
-            bool result = false;
-            bool rethrow = false;
-
-            try
-            {
-                using (HttpClient httpClient = new HttpClient())
-                {
-                    var getStreamTask = httpClient.GetStreamAsync(video.Uri);
-                    getStreamTask.Wait();
-                    Stream webStream = getStreamTask.Result;
-
-                    using (webStream)
-                    {
-                        if (testAttempt)
-                        {
-                            int limit = 1024 * 1024;
-                            Tuple<string, long> writeResult = this.WriteLocal(webStream, limit);
-                            if (writeResult.Item2 > limit)
-                                result = true;
-                        }
-                        else
-                        {
-                            rethrow = true;
-
-                            this.SendMessage("Начало скачивания");
-
-                            Tuple<string, long> writeResult = this.WriteLocal(webStream, 0);
-
-                            var sendTask = this.SendLocalVideoAsync(video, writeResult.Item1, video.Title);
-                            sendTask.Wait();
-
-                            this.SendMessage("Отправка завершена");
-
-                            result = true;
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                if (rethrow)
-                    throw ex;
-            }
-
-            return result;
-        }
-
-        private Tuple<string, long> WriteLocal(Stream webStream, int limit = 0)
-        {
-            if (webStream == null)
-                throw new ArgumentNullException("webStream");
+            if (string.IsNullOrEmpty(url))
+                throw new ArgumentNullException("url");
 
             DirectoryInfo dir = null;
             string dirPath = this.Configuration.GetParameterStringValue("DownloadFolder");
@@ -529,25 +405,51 @@ namespace Bot
                 dir.FullName,
                 Guid.NewGuid());
 
-            int totalRead = 0;
-            using (FileStream fs = System.IO.File.OpenWrite(tmpFile))
+            var videoID = YoutubeClient.ParseVideoId(url);
+            var streamInfos = await this.YoutubeClient.GetVideoMediaStreamInfosAsync(videoID);
+            VideoStreamInfo videoStream = streamInfos.Video[0];
+            YVideo video = await this.YoutubeClient.GetVideoAsync(videoID);
+
+            await this.SendMessageAsync("Начало локальной загрузки файла");
+            await this.YoutubeClient.DownloadMediaStreamAsync(videoStream, tmpFile);
+            await this.SendLocalVideoAsync(video, videoStream, tmpFile);
+
+            await this.SendMessageAsync("Окончание передачи файла");
+        }
+
+        public async Task SendLocalVideoAsync(YVideo video, VideoStreamInfo videoStream, string path)
+        {
+            if (video == null)
+                throw new ArgumentNullException("video");
+
+            if (videoStream == null)
+                throw new ArgumentNullException("videoStream");
+
+            if (string.IsNullOrEmpty(path))
+                throw new ArgumentNullException("path");
+
+            FileInfo file = new FileInfo(path);
+            if (!file.Exists)
+                throw new Exception(string.Format("Файл по адресу {0} не найден",
+                    path));
+
+            TLAbsInputFile fileResult = this.UploadLocalFileToTelegram(path, video.Title);
+            string mimeType = "video/mp4";
+            TLDocumentAttributeVideo attr1 = new TLDocumentAttributeVideo()
             {
-                byte[] buffer = new byte[1024 * 1024];
-                int read = 0;
+                Duration = (int)video.Duration.TotalSeconds + 1,
+                H = videoStream.Resolution.Height,
+                W = videoStream.Resolution.Width,
+            };
 
-                while ((read = webStream.Read(buffer, 0, buffer.Length)) > 0)
-                {
-                    fs.Write(buffer, 0, read);
-                    totalRead += read;
+            TLVector<TLAbsDocumentAttribute> attrs = new TLVector<TLAbsDocumentAttribute>();
+            attrs.Add(attr1);
 
-                    if (limit > 0 && totalRead > limit)
-                        break;
-                }
-            }
+            TLInputPeerUser peer = new TLInputPeerUser() { UserId = this.CurrentAuthUser.Id };
+            var sendTask = this.TClient.SendUploadedDocument(
+                peer, fileResult, video.Title, mimeType, attrs);
 
-            Tuple<string, long> result = new Tuple<string, long>(tmpFile, totalRead);
-
-            return result;
+            sendTask.Wait();
         }
 
         /* TESTS */

@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Telegram.Bot.Types;
-using VideoLibrary;
+using YoutubeExplode;
 
 namespace Bot
 {
@@ -55,7 +55,7 @@ namespace Bot
                 {
                     if (this.IsLink)
                     {
-                        _CmdParams = new string[] { "/v", this.CmdQuery};
+                        _CmdParams = new string[] { "/v", this.CmdQuery };
                     }
                     else
                     {
@@ -115,8 +115,9 @@ namespace Bot
                     if (this.IsLink)
                     {
                         string url = this.CmdParams[0];
-                        var allVideos = YouTube.Default.GetAllVideos(url);
-                        _IsYoutubeLink = allVideos.Count() > 0;
+                        string videoID = YoutubeClient.ParseVideoId(url);
+
+                        _IsYoutubeLink = !string.IsNullOrEmpty(videoID);
                     }
 
                     __init_IsYoutubeLink = true;
