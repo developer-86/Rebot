@@ -36,6 +36,12 @@
     <Reference Include="Bot">
       <HintPath>..\Bot\bin\Bot.dll</HintPath>
     </Reference>
+    <Reference Include="Bot.Configuration">
+      <HintPath>..\Bot.Configuration\bin\Bot.Configuration.dll</HintPath>
+    </Reference>
+    <Reference Include="Bot.Configuration.AppConfig">
+      <HintPath>..\Bot.Configuration.AppConfig\bin\Bot.Configuration.AppConfig.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Xml.Linq" />
@@ -47,6 +53,9 @@
   <ItemGroup>
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="App.config" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

@@ -3,9 +3,11 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Bot.Configuration;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 using TeleSharp.TL;
@@ -18,7 +20,18 @@ namespace Bot
 {
     public class Bot
     {
+        private const int _messageLength = 3000;
         private static object _locker = new object();
+
+        public Bot(IConfiguration configuration)
+        {
+            if (configuration == null)
+                throw new ArgumentNullException("configuration");
+
+            this.Configuration = configuration;
+        }
+
+        public IConfiguration Configuration { get; private set; }
 
         public TLUser CurrentAuthUser { get; private set; }
 
@@ -30,12 +43,29 @@ namespace Bot
             {
                 if (!__init_TBot)
                 {
-                    string botKey = string.Format("{0}:{1}", BotConsts.BotID, BotConsts.BotHash);
+                    string botID = this.Configuration.GetParameterStringValue("BotID");
+                    string botHash = this.Configuration.GetParameterStringValue("BotHash");
+                    string botKey = string.Format("{0}:{1}", botID, botHash);
                     _TBot = new TelegramBotClient(botKey);
 
                     __init_TBot = true;
                 }
                 return _TBot;
+            }
+        }
+
+        private bool __init_Phone;
+        private string _Phone;
+        private string Phone
+        {
+            get
+            {
+                if (!__init_Phone)
+                {
+                    _Phone = this.Configuration.GetParameterStringValue("Phone");
+                    __init_Phone = true;
+                }
+                return _Phone;
             }
         }
 
@@ -47,7 +77,7 @@ namespace Bot
             {
                 if (!__init_SessionName)
                 {
-                    _SessionName = string.Format("session_{0}", BotConsts.Phone);
+                    _SessionName = string.Format("session_{0}", this.Phone);
                     __init_SessionName = true;
                 }
                 return _SessionName;
@@ -77,7 +107,10 @@ namespace Bot
             {
                 if (!__init_TClient)
                 {
-                    _TClient = new TelegramClient(BotConsts.AppApiID, BotConsts.AppApiHash, this.SessionStore, this.SessionName);
+                    int appApiID = this.Configuration.GetParameterIntegerValue("AppApiID");
+                    string appApiHash = this.Configuration.GetParameterStringValue("AppApiHash");
+
+                    _TClient = new TelegramClient(appApiID, appApiHash, this.SessionStore, this.SessionName);
                     __init_TClient = true;
                 }
                 return _TClient;
@@ -86,9 +119,7 @@ namespace Bot
 
         private Chat Chat { get; set; }
 
-        private long Offset;
-
-        public async Task Start()
+        public async Task StartAsync()
         {
             await this.TBot.SetWebhookAsync("");
 
@@ -96,14 +127,13 @@ namespace Bot
             if (!connected)
                 throw new Exception(string.Format("Не удалось подключиться"));
 
-            bool isPhoneRegistered = await this.TClient.IsPhoneRegisteredAsync(BotConsts.Phone);
+            bool isPhoneRegistered = await this.TClient.IsPhoneRegisteredAsync(this.Phone);
 
             if (!this.TClient.IsUserAuthorized())
             {
-                string hash = await this.TClient.SendCodeRequestAsync(BotConsts.Phone);
+                string hash = await this.TClient.SendCodeRequestAsync(this.Phone);
                 string smsCode = null;
-                var t = 0;
-                this.CurrentAuthUser = await this.TClient.MakeAuthAsync(BotConsts.Phone, hash, smsCode);
+                this.CurrentAuthUser = await this.TClient.MakeAuthAsync(this.Phone, hash, smsCode);
             }
             else
             {
@@ -112,7 +142,7 @@ namespace Bot
             }
         }
 
-        public async Task<BotUser> GetUser(string nikName)
+        public async Task<BotUser> GetUserAsync(string nikName)
         {
             if (string.IsNullOrEmpty(nikName))
                 throw new ArgumentNullException("nikName");
@@ -153,30 +183,13 @@ namespace Bot
             if (this.Chat == null)
                 throw new Exception(string.Format("Сначала нужно активизировать чат любым сообщением"));
 
+            if (message.Length > _messageLength)
+                message = message.Substring(0, _messageLength - 6) + "...EOF";
+
             await this.TBot.SendTextMessageAsync(this.Chat, message);
         }
 
-        private long GetOffset()
-        {
-            long result = 0;
-            lock (_locker)
-            {
-                result = this.Offset;
-            }
-
-            return result;
-        }
-
-        private void SetOffset(long offset)
-        {
-            lock (_locker)
-            {
-                this.Offset = offset;
-                Console.WriteLine("offset: {0}", offset);
-            }
-        }
-
-        public async Task<bool> ActivateChat()
+        public async Task<bool> ActivateChatAsync()
         {
             bool activated = false;
             int offset = (int)this.GetOffset();
@@ -208,6 +221,97 @@ namespace Bot
             return activated;
         }
 
+        public async Task SendLocalVideoAsync(YouTubeVideo video, string path, string name)
+        {
+            if (video == null)
+                throw new ArgumentNullException("video");
+
+            if (string.IsNullOrEmpty(path))
+                throw new ArgumentNullException("path");
+
+            if (string.IsNullOrEmpty(name))
+                throw new ArgumentNullException("name");
+
+            FileInfo file = new FileInfo(path);
+            if (!file.Exists)
+                throw new Exception(string.Format("Файл по адресу {0} не найден",
+                    path));
+
+            TLAbsInputFile fileResult = this.UploadLocalFileToTelegram(path, name);
+
+            string mimeType = "video/mp4";
+            int h = video.Resolution;
+            int w = (int)(video.Resolution * 1.7777777) + 1;
+            int duration = 2 * 60 * 60;
+            TLDocumentAttributeVideo attr1 = new TLDocumentAttributeVideo()
+            {
+                Duration = duration,
+                H = h,
+                W = w,
+            };
+
+            TLVector<TLAbsDocumentAttribute> attrs = new TLVector<TLAbsDocumentAttribute>();
+            attrs.Add(attr1);
+
+            TLInputPeerUser peer = new TLInputPeerUser() { UserId = this.CurrentAuthUser.Id };
+            var sendTask = this.TClient.SendUploadedDocument(
+                peer, fileResult, name, mimeType, attrs);
+
+            sendTask.Wait();
+        }
+
+
+
+
+
+
+        private TLAbsInputFile UploadLocalFileToTelegram(string path, string name)
+        {
+            if (string.IsNullOrEmpty(path))
+                throw new ArgumentNullException("path");
+
+            if (string.IsNullOrEmpty(name))
+                throw new ArgumentNullException("name");
+
+            TLAbsInputFile fileResult;
+
+            lock (_locker)
+            {
+                this.SendMessage("Начало отправки в Telegram");
+
+                using (FileStream fs = System.IO.File.OpenRead(path))
+                {
+                    Task<TLAbsInputFile> uploadTask = this.TClient.UploadFile(name, new StreamReader(fs));
+                    uploadTask.Wait();
+                    fileResult = uploadTask.Result;
+                }
+            }
+
+            return fileResult;
+        }
+
+        private long Offset;
+
+        private long GetOffset()
+        {
+            long result = 0;
+            lock (_locker)
+            {
+                result = this.Offset;
+            }
+
+            return result;
+        }
+
+        private void SetOffset(long offset)
+        {
+            lock (_locker)
+            {
+                this.Offset = offset;
+                Console.WriteLine("offset: {0}", offset);
+            }
+        }
+
         private void ProcessMessagesWorker(object state)
         {
             while (true)
@@ -236,7 +340,14 @@ namespace Bot
                 {
                     Console.WriteLine(ex);
 
-                    this.SendMessage(ex.ToString());
+                    try
+                    {
+                        this.SendMessage(ex.ToString());
+                    }
+                    catch (Exception internalEx)
+                    {
+                        Console.WriteLine("INTERNAL_EXCEPTION: {0}", internalEx);
+                    }
                 }
                 finally
                 {
@@ -259,7 +370,6 @@ namespace Bot
                 {
                     case BotRequestType.Unknown:
                         throw new Exception(string.Format("Неизвестная команда"));
-                        break;
                     case BotRequestType.Download:
                         string url = null;
                         if (request.CmdParams.Length > 1)
@@ -272,7 +382,6 @@ namespace Bot
                         break;
                     default:
                         throw new Exception(string.Format("Неизвестная команда"));
-                        break;
                 }
             }
             catch (Exception ex)
@@ -334,7 +443,6 @@ namespace Bot
                 return bestVideo;
             });
 
-
             YouTubeVideo best = getBestVideo(int.MaxValue);
             if (best == null)
                 throw new Exception(string.Format("Не удалось найти видео для загрузки"));
@@ -359,6 +467,7 @@ namespace Bot
         private bool Upload(YouTubeVideo video, bool testAttempt)
         {
             bool result = false;
+            bool rethrow = false;
 
             try
             {
@@ -379,25 +488,16 @@ namespace Bot
                         }
                         else
                         {
+                            rethrow = true;
+
+                            this.SendMessage("Начало скачивания");
+
                             Tuple<string, long> writeResult = this.WriteLocal(webStream, 0);
 
-                            TLAbsInputFile fileResult;
-                            using (FileStream fs = System.IO.File.OpenRead(writeResult.Item1))
-                            {
-                                var downloadTask = this.TClient.UploadFile(video.Title, new StreamReader(fs));
-                                downloadTask.Wait();
-                                fileResult = downloadTask.Result;
-                            }
-
-                            TLInputPeerUser peer = new TLInputPeerUser() { UserId = this.CurrentAuthUser.Id };
-                            var sendTask = this.TClient.SendUploadedDocument(
-                                peer,
-                                fileResult,
-                                video.Title,
-                                "video/mp4",
-                                new TLVector<TLAbsDocumentAttribute>());
-
+                            var sendTask = this.SendLocalVideoAsync(video, writeResult.Item1, video.Title);
                             sendTask.Wait();
+
+                            this.SendMessage("Отправка завершена");
 
                             result = true;
                         }
@@ -406,6 +506,8 @@ namespace Bot
             }
             catch (Exception ex)
             {
+                if (rethrow)
+                    throw ex;
             }
 
             return result;
@@ -417,7 +519,7 @@ namespace Bot
                 throw new ArgumentNullException("webStream");
 
             DirectoryInfo dir = null;
-            string dirPath = @"C:\Rebot";
+            string dirPath = this.Configuration.GetParameterStringValue("DownloadFolder");
             if (!Directory.Exists(dirPath))
                 dir = Directory.CreateDirectory(dirPath);
             else
@@ -447,5 +549,26 @@ namespace Bot
 
             return result;
         }
+
+        /* TESTS */
+        /*public async Task SendTwoFilesAsync()
+        {
+            WaitCallback callback = new WaitCallback((state) =>
+            {
+                string path = state.ToString();
+
+                TLAbsInputFile fileResult;
+                FileStream fs = System.IO.File.OpenRead(path);
+                var sr = new StreamReader(fs);
+                var uploadTask = this.TClient.UploadFile("test.mp4", sr);
+                uploadTask.Wait();
+                fileResult = uploadTask.Result;
+            });
+
+            string p1 = @"C:\Rebot\d5fb9643-ad4d-47f3-8fd2-19aa2bac1034.mp4";
+            string p2 = @"C:\Rebot\ca266fb8-515c-4d5f-9fa7-c65bab6a26db.mp4";
+            ThreadPool.QueueUserWorkItem(callback, p1);
+            ThreadPool.QueueUserWorkItem(callback, p2);
+        }*/
     }
 }

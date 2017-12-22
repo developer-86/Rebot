@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Telegram.Bot.Types;
+using VideoLibrary;
 
 namespace Bot
 {
@@ -52,9 +53,16 @@ namespace Bot
             {
                 if (!__init_CmdParams)
                 {
-                    _CmdParams = this.CmdQuery.Split(new string[] { " " }, StringSplitOptions.RemoveEmptyEntries);
-                    if (_CmdParams.Length == 0)
-                        throw new Exception(string.Format("Не удалось прочитать параметры команды"));
+                    if (this.IsLink)
+                    {
+                        _CmdParams = new string[] { "/v", this.CmdQuery};
+                    }
+                    else
+                    {
+                        _CmdParams = this.CmdQuery.Split(new string[] { " " }, StringSplitOptions.RemoveEmptyEntries);
+                        if (_CmdParams.Length == 0)
+                            throw new Exception(string.Format("Не удалось прочитать параметры команды"));
+                    }
 
                     __init_CmdParams = true;
                 }
@@ -72,12 +80,48 @@ namespace Bot
                 {
                     _Type = BotRequestType.Unknown;
                     string cmdType = this.CmdParams[0];
-                    if (cmdType.ToLower() == "/v")
+                    if (cmdType.ToLower() == "/v" || this.IsYoutubeLink)
                         _Type = BotRequestType.Download;
 
                     __init_Type = true;
                 }
                 return _Type;
+            }
+        }
+
+        private bool __init_IsLink;
+        private bool _IsLink;
+        private bool IsLink
+        {
+            get
+            {
+                if (!__init_IsLink)
+                {
+                    _IsLink = this.CmdQuery.ToLower().StartsWith("http://") || this.CmdQuery.ToLower().StartsWith("https://");
+                    __init_IsLink = true;
+                }
+                return _IsLink;
+            }
+        }
+
+        private bool __init_IsYoutubeLink;
+        private bool _IsYoutubeLink;
+        private bool IsYoutubeLink
+        {
+            get
+            {
+                if (!__init_IsYoutubeLink)
+                {
+                    if (this.IsLink)
+                    {
+                        string url = this.CmdParams[0];
+                        var allVideos = YouTube.Default.GetAllVideos(url);
+                        _IsYoutubeLink = allVideos.Count() > 0;
+                    }
+
+                    __init_IsYoutubeLink = true;
+                }
+                return _IsYoutubeLink;
             }
         }
     }

@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Bot;
+using Bot.Configuration.AppConfig;
 using TBot = Bot.Bot;
 
 namespace Rebot
@@ -12,12 +13,16 @@ namespace Rebot
     {
         public static void Main()
         {
-            TBot bot = new TBot();
+            AppConfiguration configuration = new AppConfiguration();
+            TBot bot = new TBot(configuration);
+
             try
             {
-                Task task = bot.Start();
+                Task task = bot.StartAsync();
                 task.Wait();
+                Console.WriteLine("ok");
 
+                /*
                 var taskUser = bot.GetUser("DMAAPrivateBot");
                 taskUser.Wait();
                 BotUser user = taskUser.Result;
@@ -25,11 +30,12 @@ namespace Rebot
                 var taskUser2 = bot.GetUser("its_alright");
                 taskUser2.Wait();
                 BotUser user2 = taskUser2.Result;
+                */
 
                 Console.WriteLine("Активируйте чат бота.");
                 Console.ReadLine();
 
-                Task<bool> activateTask = bot.ActivateChat();
+                Task<bool> activateTask = bot.ActivateChatAsync();
                 activateTask.Wait();
                 bool activated = activateTask.Result;
 
@@ -48,10 +54,6 @@ namespace Rebot
             }
             finally
             {
-                Console.ReadLine();
-
-                bot.SendMessage("test123");
-
                 Console.ReadLine();
             }
         }
