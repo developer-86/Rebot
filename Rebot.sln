@@ -1,15 +1,24 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.27004.2010
+# Visual Studio 2013
+VisualStudioVersion = 12.0.30723.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bot", "Bot\Bot.csproj", "{00A0EE2B-F5C8-4C41-98B6-96BDD3BA8862}"
+	ProjectSection(ProjectDependencies) = postProject
+		{D0268887-DF72-4D0C-8E17-3D6630E6ED93} = {D0268887-DF72-4D0C-8E17-3D6630E6ED93}
+	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Rebot", "Rebot\Rebot.csproj", "{4A25FDA5-2479-4F5F-A3C6-1012055B0978}"
+	ProjectSection(ProjectDependencies) = postProject
+		{00A0EE2B-F5C8-4C41-98B6-96BDD3BA8862} = {00A0EE2B-F5C8-4C41-98B6-96BDD3BA8862}
+	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bot.Configuration", "Bot.Configuration\Bot.Configuration.csproj", "{D0268887-DF72-4D0C-8E17-3D6630E6ED93}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bot.Configuration.AppConfig", "Bot.Configuration.AppConfig\Bot.Configuration.AppConfig.csproj", "{DDBBB851-4528-4783-A254-23BA3BA105D3}"
+	ProjectSection(ProjectDependencies) = postProject
+		{D0268887-DF72-4D0C-8E17-3D6630E6ED93} = {D0268887-DF72-4D0C-8E17-3D6630E6ED93}
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
