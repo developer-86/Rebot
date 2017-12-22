@@ -451,26 +451,5 @@ namespace Bot
 
             sendTask.Wait();
         }
-
-        /* TESTS */
-        /*public async Task SendTwoFilesAsync()
-        {
-            WaitCallback callback = new WaitCallback((state) =>
-            {
-                string path = state.ToString();
-
-                TLAbsInputFile fileResult;
-                FileStream fs = System.IO.File.OpenRead(path);
-                var sr = new StreamReader(fs);
-                var uploadTask = this.TClient.UploadFile("test.mp4", sr);
-                uploadTask.Wait();
-                fileResult = uploadTask.Result;
-            });
-
-            string p1 = @"C:\Rebot\d5fb9643-ad4d-47f3-8fd2-19aa2bac1034.mp4";
-            string p2 = @"C:\Rebot\ca266fb8-515c-4d5f-9fa7-c65bab6a26db.mp4";
-            ThreadPool.QueueUserWorkItem(callback, p1);
-            ThreadPool.QueueUserWorkItem(callback, p2);
-        }*/
     }
 }
